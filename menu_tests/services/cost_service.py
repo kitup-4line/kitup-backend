@@ -4,17 +4,23 @@ from django.db import transaction
 
 from core.calc.margin import delivery_margin, pickup_margin
 from core.constants import DELIVERY_COMMISSION_RATE, DELIVERY_FEE
-from core.exceptions import CostNotReadyError
+from core.exceptions import CostNotReadyError, IngredientsChangedError
 from menu_tests.models import Ingredient, MenuTest
 from menu_tests.services.menu_test_service import assert_editable
 
 
 @transaction.atomic
-def replace_ingredients(test: MenuTest, items: list[dict]) -> MenuTest:
-    """재료 전체 교체 후 식재료비 합계 갱신. 직접 입력·AI 추정 공용."""
+def replace_ingredients(test: MenuTest, items: list[dict], expected_updated_at=None) -> MenuTest:
+    """재료 전체 교체 후 식재료비 합계 갱신. 직접 입력·AI 추정 공용.
+
+    expected_updated_at: AI 추정처럼 오래 걸리는 요청에서 시작 시점의 updated_at.
+    그 사이 테스트가 수정됐으면 덮어쓰지 않고 409.
+    """
     # 동시 저장 방지용 행 잠금. 잠근 뒤 Freeze 다시 확인
     locked = MenuTest.objects.select_for_update().get(pk=test.pk)
     assert_editable(locked)
+    if expected_updated_at is not None and locked.updated_at != expected_updated_at:
+        raise IngredientsChangedError()
 
     locked.ingredients.all().delete()
     Ingredient.objects.bulk_create(

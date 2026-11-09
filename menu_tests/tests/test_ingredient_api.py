@@ -46,7 +46,7 @@ class IngredientApiTests(APITestCase):
         valid = INGREDIENTS[0]
         cases = {
             "빈 목록": [],
-            "30개 초과": [{**valid, "ingredient_name": f"재료{i}"} for i in range(31)],
+            "20개 초과": [{**valid, "ingredient_name": f"재료{i}"} for i in range(21)],
             "이름 중복": [valid, {**valid, "ingredient_name": " 돼지고기 "}],
             "이름 공백": [{**valid, "ingredient_name": "  "}],
             "이름 20자 초과": [{**valid, "ingredient_name": "가" * 21}],
@@ -82,3 +82,9 @@ class IngredientApiTests(APITestCase):
     def test_not_found(self):
         self.assertEqual(self.client.get(url("test-ingredients", 999999)).status_code, 404)
         self.assertEqual(self.put(INGREDIENTS, 999999).status_code, 404)
+
+    def test_twenty_ingredients_allowed(self):
+        valid = INGREDIENTS[0]
+        res = self.put([{**valid, "ingredient_name": f"재료{i}"} for i in range(20)])
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(Ingredient.objects.count(), 20)

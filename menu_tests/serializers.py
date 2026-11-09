@@ -9,6 +9,7 @@ from .models import Ingredient, MenuTest
 
 INT_MAX = 2_147_483_647
 MAX_COST = Decimal("99999999.9999")
+MAX_INGREDIENTS = 20  # 레시피 직접 입력 화면 최대 행 수
 TIME_INPUT_FORMATS = ["%H:%M", "%H:%M:%S"]
 
 
@@ -36,7 +37,7 @@ class MenuTestListSerializer(_MenuTestBaseSerializer):
         model = MenuTest
         fields = [
             "test_id", "menu_name", "status", "resume_step", "kitchen_name",
-            "started_at", "ended_at", "created_at",
+            "started_at", "ended_at", "created_at", "updated_at",
         ]
 
 
@@ -120,6 +121,9 @@ class MenuTestUpdateSerializer(serializers.Serializer):
     business_start_time = time_field()
     business_end_time = time_field()
     monthly_fixed_cost = serializers.IntegerField(min_value=0, max_value=INT_MAX, allow_null=True)
+    total_ingredient_cost = serializers.DecimalField(
+        max_digits=12, decimal_places=4, min_value=Decimal("1")
+    )
 
     def to_internal_value(self, data):
         # 포장비 빈 문자열은 null과 같게 처리
@@ -155,7 +159,7 @@ class IngredientInputSerializer(serializers.Serializer):
 
 # TODO(팀 확인): 재료별 비용은 0원 허용, 합계는 1원 이상(DB 제약). 모든 재료가 0원이면 400
 class IngredientBulkInputSerializer(serializers.Serializer):
-    ingredients = IngredientInputSerializer(many=True, allow_empty=False, max_length=30)
+    ingredients = IngredientInputSerializer(many=True, allow_empty=False, max_length=MAX_INGREDIENTS)
 
     def validate_ingredients(self, items):
         names = [item["ingredient_name"] for item in items]
@@ -172,7 +176,7 @@ class IngredientBulkInputSerializer(serializers.Serializer):
 
 class AIEstimateInputSerializer(serializers.Serializer):
     ingredient_names = serializers.ListField(
-        child=serializers.CharField(max_length=20), min_length=1, max_length=30
+        child=serializers.CharField(max_length=20), min_length=1, max_length=MAX_INGREDIENTS
     )
 
     def validate_ingredient_names(self, names):

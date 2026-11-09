@@ -61,7 +61,7 @@ class MenuTestListCreateView(APIView):
         responses={200: envelope("MenuTestListResponse", MenuTestListSerializer(many=True))},
     )
     def get(self, request):
-        tests = MenuTest.objects.order_by("-created_at", "-id")
+        tests = MenuTest.objects.order_by("-updated_at", "-id")
         return success(MenuTestListSerializer(tests, many=True).data)
 
     @extend_schema(
@@ -184,7 +184,7 @@ class IngredientAIEstimateView(APIView):
             200: envelope("IngredientEstimateResponse", IngredientListSerializer()),
             400: error("입력값 검증 실패"),
             404: error("not_found"),
-            409: error("frozen / basic_info_required"),
+            409: error("frozen / basic_info_required / ingredients_changed"),
             502: error("ai_error: AI 호출·응답 검증 실패, DB 변경 없음"),
         },
     )
@@ -193,10 +193,11 @@ class IngredientAIEstimateView(APIView):
         ai_estimate_service.assert_ready_for_estimate(test)
         serializer = AIEstimateInputSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        test = ai_estimate_service.estimate_and_save(
+        test, is_mock = ai_estimate_service.estimate_and_save(
             test, serializer.validated_data["ingredient_names"]
         )
-        return success(ingredient_list_data(test))
+        message = "개발용 목업 결과입니다." if is_mock else None
+        return success(ingredient_list_data(test), message=message)
 
 
 class CostView(APIView):

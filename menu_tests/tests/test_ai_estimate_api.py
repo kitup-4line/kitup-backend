@@ -1,6 +1,7 @@
 from decimal import Decimal
 from unittest.mock import patch
 
+from django.test import override_settings
 from rest_framework.test import APITestCase
 
 from core.exceptions import AIServiceError
@@ -94,7 +95,66 @@ class AIEstimateApiTests(APITestCase):
         request_json.assert_not_called()
 
     def test_invalid_input(self, request_json):
-        for names in ([], ["돼지고기", "돼지고기"], ["  "], ["가" * 21]):
+        for names in ([], ["돼지고기", "돼지고기"], ["  "], ["가" * 21], [f"재료{i}" for i in range(21)]):
             with self.subTest(names=names):
                 self.assertEqual(self.post(names).status_code, 400)
         request_json.assert_not_called()
+
+
+@patch("ai.client.request_json")
+class AIEstimateConcurrencyTests(APITestCase):
+    def test_changed_during_ai_call_is_not_overwritten(self, request_json):
+        test = make_test()
+
+        def save_manually_during_call(*args):
+            # AI 응답을 기다리는 동안 사용자가 재료를 직접 저장한 상황
+            self.client.put(
+                url("test-ingredients", test.id),
+                {"ingredients": [{"ingredient_name": "대파", "quantity": 10, "unit": "g", "ingredient_cost": 300}]},
+                format="json",
+            )
+            return AI_RESPONSE
+
+        request_json.side_effect = save_manually_during_call
+
+        res = self.client.post(
+            url("test-ingredients-ai-estimate", test.id),
+            {"ingredient_names": ["돼지고기", "묵은지"]},
+            format="json",
+        )
+
+        self.assertEqual(res.status_code, 409)
+        self.assertEqual(res.json()["error"]["code"], "ingredients_changed")
+        self.assertEqual(list(Ingredient.objects.values_list("ingredient_name", flat=True)), ["대파"])
+
+
+class AIEstimateMockTests(APITestCase):
+    def post(self, test):
+        return self.client.post(
+            url("test-ingredients-ai-estimate", test.id), {"ingredient_names": ["돼지고기"]}, format="json"
+        )
+
+    @override_settings(DEBUG=True, AI_MOCK_ENABLED=True)
+    def test_mock_enabled(self):
+        res = self.post(make_test())
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json()["message"], "개발용 목업 결과입니다.")
+        self.assertEqual(res.json()["data"]["ingredients"][0]["ingredient_cost"], 1000)
+
+    @override_settings(DEBUG=True, AI_MOCK_ENABLED=False, AI_API_KEY="", AI_MODEL="")
+    def test_no_key_without_mock_returns_502(self):
+        res = self.post(make_test())
+        self.assertEqual(res.status_code, 502)
+        self.assertEqual(res.json()["error"]["message"], "AI 설정이 없습니다.")
+        self.assertFalse(Ingredient.objects.exists())
+
+    @override_settings(DEBUG=False, AI_MOCK_ENABLED=True, AI_API_KEY="", AI_MODEL="")
+    def test_mock_ignored_when_not_debug(self):
+        self.assertEqual(self.post(make_test()).status_code, 502)
+
+    @override_settings(DEBUG=False, AI_MOCK_ENABLED=False)
+    @patch("ai.client.request_json", return_value={"ingredients": [AI_RESPONSE["ingredients"][1]]})
+    def test_real_result_has_no_message(self, request_json):
+        res = self.post(make_test())
+        self.assertEqual(res.status_code, 200)
+        self.assertIsNone(res.json()["message"])

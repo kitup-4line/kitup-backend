@@ -90,3 +90,5 @@ CORS_ALLOWED_ORIGINS = [o for o in os.getenv("CORS_ALLOWED_ORIGINS", "").split("
 AI_API_KEY = os.getenv("AI_API_KEY", "")
 AI_MODEL = os.getenv("AI_MODEL", "")
 AI_TIMEOUT_SECONDS = int(os.getenv("AI_TIMEOUT_SECONDS", "30"))
+# 로컬 개발용. DEBUG일 때만 AI 대신 목업 결과 저장
+AI_MOCK_ENABLED = os.getenv("AI_MOCK_ENABLED", "False").lower() in ("1", "true", "yes")

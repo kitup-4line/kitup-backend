@@ -5,7 +5,9 @@ from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from core.constants import SAMPLE_KITCHEN_NAME
+from core.exceptions import NotDraftError
 from menu_tests.models import Ingredient, MenuTest
+from menu_tests.services import menu_test_service
 
 from .helpers import make_frozen_test, make_test, url
 
@@ -29,6 +31,16 @@ class MenuTestListCreateTests(APITestCase):
         self.assertEqual(data[1]["status"], "DRAFT")
         self.assertEqual(data[1]["resume_step"], "BASIC_INFO")
         self.assertIsNone(data[1]["kitchen_name"])
+
+    def test_list_is_ordered_by_updated_at(self):
+        older = make_test()
+        newer = make_test()
+        self.client.patch(url("test-detail", older.id), {"menu_name": "이어서 작성"}, format="json")
+
+        data = self.client.get(url("test-list")).json()["data"]
+
+        self.assertEqual([row["test_id"] for row in data], [older.id, newer.id])
+        self.assertIn("updated_at", data[0])
 
     def test_create_empty_draft(self):
         res = self.client.post(url("test-list"), {"menu_name": "무시됨"}, format="json")
@@ -123,6 +135,27 @@ class MenuTestUpdateTests(APITestCase):
         self.assertEqual(self.patch({"business_end_time": "10:00"}, test.id).status_code, 400)
         self.assertEqual(self.patch({"business_end_time": "22:00"}, test.id).status_code, 200)
 
+    def test_update_total_ingredient_cost_directly(self):
+        test = make_test(total_ingredient_cost=Decimal("4200.5"))
+
+        res = self.patch({"total_ingredient_cost": "5000.25"}, test.id)
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json()["data"]["total_ingredient_cost"], 5000.25)
+        # 이후 재료를 저장하면 재료 합계로 덮어씀
+        self.client.put(
+            url("test-ingredients", test.id),
+            {"ingredients": [{"ingredient_name": "대파", "quantity": 10, "unit": "g", "ingredient_cost": 300}]},
+            format="json",
+        )
+        test.refresh_from_db()
+        self.assertEqual(test.total_ingredient_cost, Decimal("300"))
+
+    def test_invalid_total_ingredient_cost(self):
+        for value in (0, "0.5", None, "1.00001"):
+            with self.subTest(value=value):
+                self.assertEqual(self.patch({"total_ingredient_cost": value}).status_code, 400)
+
     def test_frozen(self):
         test = make_frozen_test()
         res = self.patch({"menu_name": "변경"}, test.id)
@@ -152,6 +185,15 @@ class MenuTestDeleteTests(APITestCase):
         self.assertEqual(res.status_code, 409)
         self.assertEqual(res.json()["error"]["code"], "not_draft")
         self.assertTrue(MenuTest.objects.filter(pk=test.id).exists())
+
+    def test_rechecks_started_at_before_delete(self):
+        # 조회 후 삭제 직전에 운영이 시작된 경우
+        stale = make_test()
+        MenuTest.objects.filter(pk=stale.id).update(started_at=timezone.now())
+
+        with self.assertRaises(NotDraftError):
+            menu_test_service.delete_draft(stale)
+        self.assertTrue(MenuTest.objects.filter(pk=stale.id).exists())
 
     def test_not_found(self):
         self.assertEqual(self.client.delete(url("test-detail", 999999)).status_code, 404)

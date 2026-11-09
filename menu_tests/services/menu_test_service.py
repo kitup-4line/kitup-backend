@@ -13,6 +13,8 @@ UPDATABLE_FIELDS = (
     "business_start_time",
     "business_end_time",
     "monthly_fixed_cost",
+    # 직접 수정한 식재료비 총액. 이후 재료를 저장하면 재료 합계로 덮어씀
+    "total_ingredient_cost",
 )
 
 
@@ -42,7 +44,11 @@ def update_test(test: MenuTest, data: dict) -> MenuTest:
     return locked
 
 
+@transaction.atomic
 def delete_draft(test: MenuTest) -> None:
-    if test.started_at is not None:
+    # 행 잠금 후 작성 중인지 재확인 (데이터 불러오기와 동시 요청 방지)
+    # 데이터 불러오기(orders import)도 같은 행을 select_for_update로 잠가야 함
+    locked = MenuTest.objects.select_for_update().get(pk=test.pk)
+    if locked.started_at is not None:
         raise NotDraftError()
-    test.delete()
+    locked.delete()

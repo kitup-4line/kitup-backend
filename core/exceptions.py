@@ -48,6 +48,13 @@ class CostNotReadyError(ConflictError):
     default_code = "cost_not_ready"
 
 
+class IngredientsChangedError(ConflictError):
+    """AI 추정 중 테스트가 수정됨. 늦게 온 AI 결과로 덮어쓰지 않음."""
+
+    default_detail = "AI 추정 중 테스트 정보가 변경되었습니다. 다시 시도해주세요."
+    default_code = "ingredients_changed"
+
+
 class AIServiceError(APIException):
     status_code = status.HTTP_502_BAD_GATEWAY
     default_detail = "AI 응답을 처리하지 못했습니다."
