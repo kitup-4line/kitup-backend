@@ -15,6 +15,7 @@ from core.models import TimeStampedModel
 
 
 class MenuTest(TimeStampedModel):
+    # TODO(팀 확인): ERD는 IDENTITY ALWAYS. Django 기본(BY DEFAULT) 유지 중
     id = models.BigAutoField(primary_key=True, db_column="test_id")
     menu_name = models.CharField(max_length=30, null=True, blank=True)
     selling_price = models.IntegerField(
@@ -110,6 +111,9 @@ class MenuTest(TimeStampedModel):
             ),
         ]
 
+    def __str__(self):
+        return f"[{self.pk}] {self.menu_name or '(초안)'}"
+
     @property
     def status(self) -> TestStatus:
         if self.ended_at is not None:
@@ -117,6 +121,24 @@ class MenuTest(TimeStampedModel):
         if self.started_at is not None:
             return TestStatus.RUNNING
         return TestStatus.DRAFT
+
+    @property
+    def is_editable(self) -> bool:
+        """리포트 생성(ended_at) 전까지만 수정 가능."""
+        return self.ended_at is None
+
+    # TODO(팀 확인): 원가 산정 방법(직접/AI)은 저장 안 함. INGREDIENTS 단계 화면 선택은 FE가 결정
+    @property
+    def resume_step(self) -> str | None:
+        """작성 중일 때 이어서 작성할 단계. 그 외 상태는 None."""
+        if self.status != TestStatus.DRAFT:
+            return None
+        basic = (self.menu_name, self.selling_price, self.business_start_time, self.business_end_time)
+        if any(value is None for value in basic):
+            return "BASIC_INFO"
+        if self.total_ingredient_cost is None:
+            return "INGREDIENTS"
+        return "COST_RESULT"
 
 
 class Ingredient(TimeStampedModel):
@@ -129,6 +151,7 @@ class Ingredient(TimeStampedModel):
         validators=[MinValueValidator(Decimal("0.0001"))],
     )
     unit = models.CharField(max_length=10, choices=IngredientUnit.choices)
+    # TODO(팀 확인): 화면 라벨은 "구매 단가", ERD는 "사용 비용". 현재는 사용 비용으로 보고 수량 곱하지 않고 합산
     ingredient_cost = models.DecimalField(
         max_digits=12,
         decimal_places=4,
@@ -139,6 +162,7 @@ class Ingredient(TimeStampedModel):
     class Meta:
         db_table = "ingredients"
         constraints = [
+            # TODO(팀 확인): ERD는 재료명 전역 UNIQUE. 현재는 같은 테스트 안에서만 중복 금지
             models.UniqueConstraint(
                 fields=["test", "ingredient_name"], name="ingredients_test_name_unique"
             ),
