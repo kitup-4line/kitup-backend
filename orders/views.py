@@ -45,7 +45,7 @@ class OrderImportSampleView(APIView):
     @extend_schema(
         tags=["orders"],
         summary="가상 주문, 리뷰 불러오기",
-        description="요청 본문은 사용하지 않습니다. 불러오기 성공 시 운영을 시작합니다. "
+        description="요청 본문은 사용하지 않습니다. 불러오기 성공 시 가상 운영 첫날 00:00을 started_at에 저장합니다. "
                     "등록일까지의 과거 14일로 샘플을 옮기고 공유주방·기간을 함께 보존합니다.",
         request=None,
         responses={

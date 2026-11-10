@@ -29,7 +29,7 @@ class OrderListSerializer(serializers.ModelSerializer):
 class SamplePeriodSerializer(serializers.Serializer):
     start_date = serializers.DateField()
     end_date = serializers.DateField()
-    operating_days = serializers.IntegerField(min_value=1)
+    operating_days = serializers.IntegerField(min_value=14, max_value=14)
 
     def validate(self, attrs):
         days = (attrs["end_date"] - attrs["start_date"]).days + 1

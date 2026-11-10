@@ -24,8 +24,6 @@ class OrderImportTests(APITestCase):
         self.test.refresh_from_db()
         self.assertEqual(self.test.started_at, self.original_started_at)
         self.assertIsNone(self.test.kitchen_name)
-        self.assertIsNone(self.test.sample_start_date)
-        self.assertIsNone(self.test.sample_end_date)
         self.assertFalse(self.test.orders.exists())
         self.assertFalse(Review.objects.exists())
 
@@ -49,12 +47,12 @@ class OrderImportTests(APITestCase):
         self.assertEqual((data["test_id"], data["status"], data["order_count"], data["review_count"]),
                          (self.test.pk, "RUNNING", 60, 48))
         self.test.refresh_from_db()
-        self.assertEqual(self.test.started_at, imported_at)
+        self.assertEqual(timezone.localtime(self.test.started_at).isoformat(), "2026-12-19T00:00:00+09:00")
+        self.assertEqual(data["started_at"], "2026-12-19T00:00:00+09:00")
         self.assertEqual(self.test.kitchen_name, package["kitchen_name"])
         self.assertEqual(data["kitchen_name"], package["kitchen_name"])
         self.assertEqual(data["period"], {"start_date": "2026-12-19", "end_date": "2027-01-01", "operating_days": 14})
-        self.assertEqual(self.test.sample_start_date, date(2026, 12, 19))
-        self.assertEqual(self.test.sample_end_date, date(2027, 1, 1))
+        self.assertTrue(all(row.created_at >= self.test.started_at for row in self.test.orders.all()))
         self.assertGreater(self.test.updated_at, old_updated_at)
         self.assertEqual(self.test.orders.count(), 60)
         self.assertEqual(self.test.orders.filter(review__isnull=True).count(), 12)
@@ -104,22 +102,21 @@ class OrderImportTests(APITestCase):
             self.assert_error(self.client.post(self.endpoint), 409, "already_imported")
         self.test.refresh_from_db()
         self.assertEqual(self.test.kitchen_name, original_kitchen)
-        self.assertEqual(self.test.sample_start_date.isoformat(), original_period["start_date"])
-        self.assertEqual(self.test.sample_end_date.isoformat(), original_period["end_date"])
+        self.assertEqual(timezone.localdate(self.test.started_at).isoformat(), original_period["start_date"])
+        self.assertEqual((timezone.localdate(self.test.started_at) + timedelta(days=13)).isoformat(), original_period["end_date"])
         other.refresh_from_db()
         self.assertEqual(other.kitchen_name, "다음 시연 주방")
-        self.assertEqual(other.sample_end_date, timezone.localdate(later))
+        self.assertEqual(timezone.localdate(other.started_at) + timedelta(days=13), timezone.localdate(later))
 
     def test_import_marker_blocks_retry_even_if_orders_were_removed(self):
         self.assertEqual(self.client.post(self.endpoint).status_code, 201)
         self.test.orders.all().delete()
         self.assert_error(self.client.post(self.endpoint), 409, "already_imported")
 
-    def test_database_rejects_partial_or_reversed_metadata(self):
+    def test_database_rejects_kitchen_without_start_or_blank_name(self):
         for fields in (
             {"kitchen_name": "주방만 저장"},
-            {"kitchen_name": "주방", "sample_start_date": date(2026, 11, 10),
-             "sample_end_date": date(2026, 10, 28), "started_at": timezone.now()},
+            {"kitchen_name": "  ", "started_at": timezone.now()},
         ):
             with self.subTest(fields=fields), self.assertRaises(IntegrityError), transaction.atomic():
                 MenuTest.objects.filter(pk=self.test.pk).update(**fields)
@@ -208,8 +205,6 @@ class OrderImportTests(APITestCase):
         self.test.refresh_from_db()
         self.assertEqual(self.test.started_at, self.original_started_at)
         self.assertIsNone(self.test.kitchen_name)
-        self.assertIsNone(self.test.sample_start_date)
-        self.assertIsNone(self.test.sample_end_date)
 
 
 class OrderImportRequestTests(SimpleTestCase):

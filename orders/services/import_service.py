@@ -1,7 +1,7 @@
 """가상 주문·리뷰, 등록 당시 정보와 운영 시작을 함께 저장한다."""
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from pathlib import Path
 from typing import cast
 
@@ -79,12 +79,11 @@ def import_sample(test_id: int) -> dict:
             for item in package["reviews"]
         ])
         test.kitchen_name = package["kitchen_name"]
-        test.sample_start_date = start_date
-        test.sample_end_date = end_date
-        test.started_at = imported_at
+        test.started_at = timezone.make_aware(
+            datetime.combine(start_date, time.min), timezone.get_default_timezone(),
+        )
         test.save(update_fields=[
-            "kitchen_name", "sample_start_date", "sample_end_date",
-            "started_at", "updated_at",
+            "kitchen_name", "started_at", "updated_at",
         ])
 
     return {
@@ -93,9 +92,9 @@ def import_sample(test_id: int) -> dict:
         "started_at": test.started_at,
         "kitchen_name": test.kitchen_name,
         "period": {
-            "start_date": test.sample_start_date,
-            "end_date": test.sample_end_date,
-            "operating_days": (test.sample_end_date - test.sample_start_date).days + 1,
+            "start_date": timezone.localdate(test.started_at),
+            "end_date": timezone.localdate(test.started_at) + timedelta(days=13),
+            "operating_days": 14,
         },
         "order_count": len(orders),
         "review_count": len(reviews),

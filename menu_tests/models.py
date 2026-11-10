@@ -37,12 +37,11 @@ class MenuTest(TimeStampedModel):
         blank=True,
         validators=[MinValueValidator(Decimal("1"))],
     )
+    # 가상 운영 시작일의 한국 시간 00:00.
     started_at = models.DateTimeField(null=True, blank=True)
     ended_at = models.DateTimeField(null=True, blank=True)
     # 등록 당시 샘플 정보. 이후 JSON을 바꿔도 유지한다.
     kitchen_name = models.CharField(max_length=100, null=True, blank=True)
-    sample_start_date = models.DateField(null=True, blank=True)
-    sample_end_date = models.DateField(null=True, blank=True)
     monthly_fixed_cost = models.IntegerField(
         null=True, blank=True, validators=[MinValueValidator(0)]
     )
@@ -65,14 +64,10 @@ class MenuTest(TimeStampedModel):
         constraints = [
             models.CheckConstraint(
                 condition=(
-                    Q(kitchen_name__isnull=True, sample_start_date__isnull=True,
-                      sample_end_date__isnull=True)
-                    | (Q(kitchen_name__isnull=False, kitchen_name__regex=r"\S",
-                         sample_start_date__isnull=False, sample_end_date__isnull=False,
-                         started_at__isnull=False)
-                       & Q(sample_end_date__gte=F("sample_start_date")))
+                    Q(kitchen_name__isnull=True)
+                    | Q(kitchen_name__regex=r"\S", started_at__isnull=False)
                 ),
-                name="tests_sample_metadata_complete",
+                name="tests_kitchen_requires_start",
             ),
             models.CheckConstraint(
                 condition=Q(menu_name__isnull=True) | Q(menu_name__regex=r"\S"),

@@ -25,6 +25,7 @@ class SampleMetadataTests(SimpleTestCase):
             lambda p: p["period"].update(start_date="not-a-date"),
             lambda p: p["period"].update(operating_days=0),
             lambda p: p["period"].update(operating_days=13),
+            lambda p: p["period"].update(operating_days=15, end_date="2026-11-11"),
             lambda p: p["period"].update(end_date="2020-01-01"),
             lambda p: p["orders"][0].update(created_at="2000-01-01T12:00:00+09:00"),
         )
