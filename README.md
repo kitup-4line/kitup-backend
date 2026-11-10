@@ -35,6 +35,18 @@ PostgreSQL 18.6은 `compose.dev.yaml`로, Django는 PC의 가상환경에서 실
 - DB를 종료해도 데이터는 유지됩니다.
 - `docker compose -f compose.dev.yaml down -v`는 데이터를 삭제합니다.
 
+## 샘플 데이터
+
+[sample_package.json](orders/fixtures/sample_package.json)은 **후라이드 반 / 양념 반** 메뉴의 실제 리뷰 48개와 가상 주문 60개로 구성한 시연용 데이터입니다.
+
+출처: Hyunggu Jung, Hyunmin Lee, SeungYoung Oh, JinHyun Han, [Mendeley 요기요 리뷰 v2](https://data.mendeley.com/datasets/rnyrpzyw3h/2), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+
+재생성: 위 Mendeley v2에서 `Korean Reviews.csv` 다운로드 → `downloads/`에 저장 → 프로젝트 루트에서 실행 (`--check`: 검증만).
+
+```powershell
+python scripts/build_sample_package.py --source "downloads/Korean Reviews.csv"
+```
+
 ## 구조
 
 ```
