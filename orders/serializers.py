@@ -4,6 +4,28 @@ from rest_framework import serializers
 
 from core.choices import Channel, TestStatus
 
+from .models import Order, Review
+
+
+class _OrderReviewSerializer(serializers.ModelSerializer):
+    review_id = serializers.IntegerField(source="id", read_only=True)
+
+    class Meta:
+        model = Review
+        fields = ["review_id", "content", "written_at"]
+        read_only_fields = fields
+
+
+class OrderListSerializer(serializers.ModelSerializer):
+    order_id = serializers.IntegerField(source="id", read_only=True)
+    review = _OrderReviewSerializer(read_only=True, allow_null=True)
+
+    class Meta:
+        model = Order
+        fields = ["order_id", "created_at", "order_type", "sales_amount", "review"]
+        read_only_fields = fields
+
+
 class SamplePeriodSerializer(serializers.Serializer):
     start_date = serializers.DateField()
     end_date = serializers.DateField()

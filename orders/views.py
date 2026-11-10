@@ -3,13 +3,40 @@ from rest_framework import serializers, status
 from rest_framework.views import APIView
 
 from core.responses import success
+from menu_tests.services.menu_test_service import get_test_or_404
 
-from .serializers import OrderImportResultSerializer
+from .models import Order
+from .serializers import OrderImportResultSerializer, OrderListSerializer
 from .services import import_service
 
 
 class OrderListView(APIView):
     """GET 주문·리뷰 목록"""
+
+    @extend_schema(
+        tags=["orders"],
+        summary="주문·리뷰 목록 조회",
+        description="주문 시각·ID 오름차순으로 전체 목록을 반환합니다. "
+                    "리뷰 원문을 함께 제공하며 리뷰가 없는 주문은 review가 null입니다. "
+                    "페이지 구분은 프론트에서 처리합니다.",
+        responses={
+            200: inline_serializer(name="OrderListResponse", fields={
+                "success": serializers.BooleanField(),
+                "message": serializers.CharField(allow_null=True),
+                "data": OrderListSerializer(many=True),
+            }),
+            404: OpenApiResponse(description="not_found"),
+            500: OpenApiResponse(description="server_error: 조회 실패"),
+        },
+    )
+    def get(self, request, test_id):
+        get_test_or_404(test_id)
+        orders = (
+            Order.objects.filter(test_id=test_id)
+            .select_related("review")
+            .order_by("created_at", "id")
+        )
+        return success(OrderListSerializer(orders, many=True).data)
 
 
 class OrderImportSampleView(APIView):
@@ -38,7 +65,3 @@ class OrderImportSampleView(APIView):
             OrderImportResultSerializer(result).data,
             status=status.HTTP_201_CREATED,
         )
-
-
-class OrderStatusView(APIView):
-    """(보류) PATCH 주문 상태 변경"""
