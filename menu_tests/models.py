@@ -1,9 +1,11 @@
+from datetime import date, timedelta
 from decimal import Decimal
 
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models import F, Q, Value
 from django.db.models.lookups import Exact
+from django.utils import timezone
 
 from core.choices import (
     IngredientUnit,
@@ -11,6 +13,7 @@ from core.choices import (
     ReviewAnalysisStatus,
     TestStatus,
 )
+from core.constants import SAMPLE_OPERATING_DAYS
 from core.models import TimeStampedModel
 
 
@@ -123,6 +126,19 @@ class MenuTest(TimeStampedModel):
 
     def __str__(self):
         return f"[{self.pk}] {self.menu_name or '(초안)'}"
+
+    @property
+    def operating_start_date(self) -> date | None:
+        if self.started_at is None:
+            return None
+        return timezone.localdate(self.started_at, timezone.get_default_timezone())
+
+    @property
+    def operating_end_date(self) -> date | None:
+        start_date = self.operating_start_date
+        if start_date is None:
+            return None
+        return start_date + timedelta(days=SAMPLE_OPERATING_DAYS - 1)
 
     @property
     def status(self) -> TestStatus:

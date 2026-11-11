@@ -15,13 +15,6 @@ class ConflictError(APIException):
     default_code = "conflict"
 
 
-class AlreadyStartedError(ConflictError):
-    """이미 데이터 불러오기(운영 시작)가 끝난 테스트."""
-
-    default_detail = "이미 주문·리뷰 데이터를 불러온 테스트입니다."
-    default_code = "already_started"
-
-
 class FrozenError(ConflictError):
     """리포트 생성(ended_at 기록) 이후 원가·고정비 수정 시도."""
 

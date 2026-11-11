@@ -69,7 +69,7 @@ def make_package(source, selection):
             "source_csv_record": record,
         })
     return {
-        "kitchen_name": "킷업 샘플 공유주방 (가상)",
+        "kitchen_name": "성수 공유주방 A - 가상공간",
         "period": {
             "start_date": START.isoformat(),
             "end_date": (START + timedelta(days=13)).isoformat(),

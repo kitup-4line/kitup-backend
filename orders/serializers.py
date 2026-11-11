@@ -3,6 +3,8 @@ from django.utils.dateparse import parse_datetime
 from rest_framework import serializers
 
 from core.choices import Channel, TestStatus
+from core.constants import SAMPLE_OPERATING_DAYS
+from menu_tests.serializers import OperatingPeriodSerializer
 
 from .models import Order, Review
 
@@ -26,10 +28,10 @@ class OrderListSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class SamplePeriodSerializer(serializers.Serializer):
-    start_date = serializers.DateField()
-    end_date = serializers.DateField()
-    operating_days = serializers.IntegerField(min_value=14, max_value=14)
+class SamplePeriodSerializer(OperatingPeriodSerializer):
+    operating_days = serializers.IntegerField(
+        min_value=SAMPLE_OPERATING_DAYS, max_value=SAMPLE_OPERATING_DAYS
+    )
 
     def validate(self, attrs):
         days = (attrs["end_date"] - attrs["start_date"]).days + 1
@@ -43,7 +45,7 @@ class OrderImportResultSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=TestStatus.choices)
     started_at = serializers.DateTimeField()
     kitchen_name = serializers.CharField()
-    period = SamplePeriodSerializer()
+    period = OperatingPeriodSerializer()
     order_count = serializers.IntegerField()
     review_count = serializers.IntegerField()
 

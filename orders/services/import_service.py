@@ -1,7 +1,7 @@
 """가상 주문·리뷰, 등록 당시 정보와 운영 시작을 함께 저장한다."""
 
 import json
-from datetime import datetime, time, timedelta
+from datetime import datetime, time
 from pathlib import Path
 from typing import cast
 
@@ -10,6 +10,7 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import NotFound, ValidationError
 
+from core.constants import SAMPLE_OPERATING_DAYS
 from core.exceptions import AlreadyImportedError, FrozenError, ImportNotReadyError
 from menu_tests.models import MenuTest
 from orders.models import Order, Review
@@ -53,8 +54,8 @@ def import_sample(test_id: int) -> dict:
             raise ImportNotReadyError()
 
         imported_at = timezone.now()
-        end_date = timezone.localdate(imported_at)
-        offset = timedelta(days=(end_date - package["period"]["end_date"]).days)
+        end_date = timezone.localdate(imported_at, timezone.get_default_timezone())
+        offset = end_date - package["period"]["end_date"]
         start_date = package["period"]["start_date"] + offset
         orders = Order.objects.bulk_create([
             Order(
@@ -92,9 +93,9 @@ def import_sample(test_id: int) -> dict:
         "started_at": test.started_at,
         "kitchen_name": test.kitchen_name,
         "period": {
-            "start_date": timezone.localdate(test.started_at),
-            "end_date": timezone.localdate(test.started_at) + timedelta(days=13),
-            "operating_days": 14,
+            "start_date": test.operating_start_date,
+            "end_date": test.operating_end_date,
+            "operating_days": SAMPLE_OPERATING_DAYS,
         },
         "order_count": len(orders),
         "review_count": len(reviews),
