@@ -21,6 +21,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "drf_spectacular",
     "corsheaders",
+    "django_q",
     # local
     "core",
     "menu_tests",
@@ -92,3 +93,29 @@ AI_MODEL = os.getenv("AI_MODEL", "")
 AI_TIMEOUT_SECONDS = int(os.getenv("AI_TIMEOUT_SECONDS", "30"))
 # 로컬 개발용. DEBUG일 때만 AI 대신 목업 결과 저장
 AI_MOCK_ENABLED = os.getenv("AI_MOCK_ENABLED", "False").lower() in ("1", "true", "yes")
+
+# 리포트는 재료 추정의 AI_* 설정을 사용하지 않는다.
+REPORT_REVIEW_PROVIDER = os.getenv("REPORT_REVIEW_PROVIDER", "")
+REPORT_REVIEW_MODEL = os.getenv("REPORT_REVIEW_MODEL", "")
+REPORT_REVIEW_API_KEY = os.getenv("REPORT_REVIEW_API_KEY", "")
+REPORT_IMPROVEMENT_PROVIDER = os.getenv("REPORT_IMPROVEMENT_PROVIDER", "")
+REPORT_IMPROVEMENT_MODEL = os.getenv("REPORT_IMPROVEMENT_MODEL", "")
+REPORT_IMPROVEMENT_API_KEY = os.getenv("REPORT_IMPROVEMENT_API_KEY", "")
+REPORT_AI_TIMEOUT_SECONDS = int(os.getenv("REPORT_AI_TIMEOUT_SECONDS", "120"))
+
+# 한 번에 한 리포트 처리. 내부 대기 작업까지 고려해 재전달 간격을 둔다.
+Q_CLUSTER = {
+    "name": "reports",
+    "orm": "default",
+    "workers": 1,
+    "queue_limit": 1,
+    "bulk": 1,
+    "timeout": 300,
+    # 실행 1개 + 메모리 대기 1개 + pusher가 선점한 1개의 최대 처리 시간보다 길게.
+    "retry": 960,
+    "max_attempts": 3,
+    "poll": 1,
+    "sync": False,
+    "save_limit": 100,
+    "scheduler": False,
+}
