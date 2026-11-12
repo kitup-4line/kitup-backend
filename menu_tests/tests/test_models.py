@@ -17,18 +17,19 @@ class MenuTestModelTests(TestCase):
         self.assertEqual(test.packaging_cost, Decimal("1000"))
         self.assertEqual(test.review_analysis_status, "PENDING")
         self.assertEqual(test.improvement_status, "PENDING")
-        self.assertIsNone(test.monthly_fixed_cost)
+        self.assertIsNone(test.additional_fixed_cost)
         self.assertIsNone(test.improvement_result)
+        self.assertEqual(test.review_quotes, [])
         self.assertEqual(test.status, TestStatus.DRAFT)
         self.assertFalse(test.ingredients.exists())
         self.assertFalse(test.orders.exists())
 
     def test_fixed_cost_accepts_zero_and_rejects_negative(self):
-        test = MenuTest.objects.create(monthly_fixed_cost=0)
+        test = MenuTest.objects.create(additional_fixed_cost=0)
         with self.assertRaises(IntegrityError), transaction.atomic():
-            MenuTest.objects.filter(pk=test.pk).update(monthly_fixed_cost=-1)
+            MenuTest.objects.filter(pk=test.pk).update(additional_fixed_cost=-1)
         test.refresh_from_db()
-        self.assertEqual(test.monthly_fixed_cost, 0)
+        self.assertEqual(test.additional_fixed_cost, 0)
 
     def test_database_defaults_apply_outside_orm(self):
         with connection.cursor() as cursor:
@@ -37,11 +38,12 @@ class MenuTestModelTests(TestCase):
                 'test_id, packaging_cost, review_analysis_status, improvement_status, '
                 'created_at, updated_at'
             )
-            _, cost, review_status, improvement_status, created_at, updated_at = cursor.fetchone()
+            test_id, cost, review_status, improvement_status, created_at, updated_at = cursor.fetchone()
         self.assertEqual(cost, Decimal("1000"))
         self.assertEqual((review_status, improvement_status), ("PENDING", "PENDING"))
         self.assertIsNotNone(created_at)
         self.assertIsNotNone(updated_at)
+        self.assertEqual(MenuTest.objects.get(pk=test_id).review_quotes, [])
 
     def test_invalid_input_is_rejected_without_model_full_clean(self):
         test = MenuTest.objects.create()

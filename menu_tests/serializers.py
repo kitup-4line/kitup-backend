@@ -57,7 +57,7 @@ class MenuTestDetailSerializer(_MenuTestBaseSerializer):
         fields = [
             "test_id", "menu_name", "selling_price", "packaging_cost",
             "business_start_time", "business_end_time", "total_ingredient_cost",
-            "monthly_fixed_cost", "status", "resume_step", "is_editable", "kitchen_name",
+            "additional_fixed_cost", "status", "resume_step", "is_editable", "kitchen_name",
             "started_at", "ended_at", "created_at", "updated_at",
         ]
         read_only_fields = fields
@@ -126,7 +126,7 @@ class MenuTestUpdateSerializer(serializers.Serializer):
     )
     business_start_time = time_field()
     business_end_time = time_field()
-    monthly_fixed_cost = serializers.IntegerField(min_value=0, max_value=INT_MAX, allow_null=True)
+    additional_fixed_cost = serializers.IntegerField(min_value=0, max_value=INT_MAX, allow_null=True)
     total_ingredient_cost = serializers.DecimalField(
         max_digits=12, decimal_places=4, min_value=Decimal("1")
     )

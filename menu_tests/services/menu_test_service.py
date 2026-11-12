@@ -12,16 +12,16 @@ UPDATABLE_FIELDS = (
     "packaging_cost",
     "business_start_time",
     "business_end_time",
-    "monthly_fixed_cost",
+    "additional_fixed_cost",
     # 직접 수정한 식재료비 총액. 이후 재료를 저장하면 재료 합계로 덮어씀
     "total_ingredient_cost",
 )
 
 
-def get_test_or_404(test_id) -> MenuTest:
-    # Http404 대신 NotFound를 써야 에러 code가 not_found로 내려감
+def get_test_or_404(test_id, *, for_update=False) -> MenuTest:
     try:
-        return MenuTest.objects.get(pk=test_id)
+        queryset = MenuTest.objects.select_for_update() if for_update else MenuTest.objects
+        return queryset.get(pk=test_id)
     except MenuTest.DoesNotExist:
         raise NotFound("테스트를 찾을 수 없습니다.") from None
 

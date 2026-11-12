@@ -45,10 +45,13 @@ class MenuTest(TimeStampedModel):
     ended_at = models.DateTimeField(null=True, blank=True)
     # 등록 당시 샘플 정보. 이후 JSON을 바꿔도 유지한다.
     kitchen_name = models.CharField(max_length=100, null=True, blank=True)
-    monthly_fixed_cost = models.IntegerField(
+    additional_fixed_cost = models.IntegerField(
         null=True, blank=True, validators=[MinValueValidator(0)]
     )
     improvement_result = models.JSONField(null=True, blank=True)
+    # 리뷰 분석 시 원문 검증을 통과한 항목별 인용. 조회에서 AI를 다시 호출하지 않는다.
+    review_quotes = models.JSONField(default=list, db_default=[], blank=True)
+    report_task_id = models.CharField(max_length=32, null=True, blank=True, editable=False)
     review_analysis_status = models.CharField(
         max_length=20,
         choices=ReviewAnalysisStatus.choices,
@@ -96,7 +99,7 @@ class MenuTest(TimeStampedModel):
                 name="tests_operating_time_order",
             ),
             models.CheckConstraint(
-                condition=Q(monthly_fixed_cost__gte=0), name="tests_fixed_cost_nonnegative"
+                condition=Q(additional_fixed_cost__gte=0), name="tests_fixed_cost_nonnegative"
             ),
             models.CheckConstraint(
                 condition=Q(review_analysis_status__in=ReviewAnalysisStatus.values),

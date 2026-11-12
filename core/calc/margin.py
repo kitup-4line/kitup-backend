@@ -31,15 +31,21 @@ def delivery_margin(
     packaging_cost,
     commission_rate=DELIVERY_COMMISSION_RATE,
     delivery_fee=DELIVERY_FEE,
+    *,
+    round_result=True,
 ) -> DeliveryMargin:
     price = Decimal(selling_price)
-    commission = round_won(price * Decimal(commission_rate))
+    commission = price * Decimal(commission_rate)
+    if round_result:
+        commission = round_won(commission)
     total = Decimal(ingredient_cost) + Decimal(packaging_cost) + Decimal(delivery_fee) + commission
-    return DeliveryMargin(commission, total, round_won(price - total))
+    margin = price - total
+    return DeliveryMargin(commission, total, round_won(margin) if round_result else margin)
 
 
-# TODO(팀 확인): 픽업에 수수료·포장비 적용 여부. 현재는 수수료·배달비 없이 포장비만 포함
-def pickup_margin(selling_price, ingredient_cost, packaging_cost) -> PickupMargin:
+def pickup_margin(selling_price, ingredient_cost, packaging_cost, *, round_result=True) -> PickupMargin:
+    """픽업은 식재료비와 포장비만 차감한다."""
     price = Decimal(selling_price)
     total = Decimal(ingredient_cost) + Decimal(packaging_cost)
-    return PickupMargin(total, round_won(price - total))
+    margin = price - total
+    return PickupMargin(total, round_won(margin) if round_result else margin)
