@@ -20,6 +20,12 @@ def time_field(**kwargs):
 # 응답 ---------------------------------------------------------------
 
 
+class OperatingPeriodSerializer(serializers.Serializer):
+    start_date = serializers.DateField()
+    end_date = serializers.DateField()
+    operating_days = serializers.IntegerField()
+
+
 class _MenuTestBaseSerializer(serializers.ModelSerializer):
     test_id = serializers.IntegerField(source="id", read_only=True)
     status = serializers.ChoiceField(choices=TestStatus.choices, read_only=True)

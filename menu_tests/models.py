@@ -1,9 +1,11 @@
+from datetime import date, timedelta
 from decimal import Decimal
 
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models import F, Q, Value
 from django.db.models.lookups import Exact
+from django.utils import timezone
 
 from core.choices import (
     IngredientUnit,
@@ -11,6 +13,7 @@ from core.choices import (
     ReviewAnalysisStatus,
     TestStatus,
 )
+from core.constants import SAMPLE_OPERATING_DAYS
 from core.models import TimeStampedModel
 
 
@@ -37,8 +40,11 @@ class MenuTest(TimeStampedModel):
         blank=True,
         validators=[MinValueValidator(Decimal("1"))],
     )
+    # 가상 운영 시작일의 한국 시간 00:00.
     started_at = models.DateTimeField(null=True, blank=True)
     ended_at = models.DateTimeField(null=True, blank=True)
+    # 등록 당시 샘플 정보. 이후 JSON을 바꿔도 유지한다.
+    kitchen_name = models.CharField(max_length=100, null=True, blank=True)
     monthly_fixed_cost = models.IntegerField(
         null=True, blank=True, validators=[MinValueValidator(0)]
     )
@@ -59,6 +65,13 @@ class MenuTest(TimeStampedModel):
     class Meta:
         db_table = "tests"
         constraints = [
+            models.CheckConstraint(
+                condition=(
+                    Q(kitchen_name__isnull=True)
+                    | Q(kitchen_name__regex=r"\S", started_at__isnull=False)
+                ),
+                name="tests_kitchen_requires_start",
+            ),
             models.CheckConstraint(
                 condition=Q(menu_name__isnull=True) | Q(menu_name__regex=r"\S"),
                 name="tests_menu_name_nonblank",
@@ -113,6 +126,19 @@ class MenuTest(TimeStampedModel):
 
     def __str__(self):
         return f"[{self.pk}] {self.menu_name or '(초안)'}"
+
+    @property
+    def operating_start_date(self) -> date | None:
+        if self.started_at is None:
+            return None
+        return timezone.localdate(self.started_at, timezone.get_default_timezone())
+
+    @property
+    def operating_end_date(self) -> date | None:
+        start_date = self.operating_start_date
+        if start_date is None:
+            return None
+        return start_date + timedelta(days=SAMPLE_OPERATING_DAYS - 1)
 
     @property
     def status(self) -> TestStatus:

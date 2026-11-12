@@ -1,6 +1,12 @@
+import logging
+
 from rest_framework import status
 from rest_framework.exceptions import APIException
-from rest_framework.views import exception_handler
+from rest_framework.views import exception_handler, set_rollback
+
+from core.responses import error
+
+logger = logging.getLogger(__name__)
 
 
 class ConflictError(APIException):
@@ -9,18 +15,21 @@ class ConflictError(APIException):
     default_code = "conflict"
 
 
-class AlreadyStartedError(ConflictError):
-    """이미 데이터 불러오기(운영 시작)가 끝난 테스트."""
-
-    default_detail = "이미 주문·리뷰 데이터를 불러온 테스트입니다."
-    default_code = "already_started"
-
-
 class FrozenError(ConflictError):
     """리포트 생성(ended_at 기록) 이후 원가·고정비 수정 시도."""
 
     default_detail = "리포트가 생성된 테스트는 수정할 수 없습니다."
     default_code = "frozen"
+
+
+class ImportNotReadyError(ConflictError):
+    default_detail = "메뉴명, 판매가, 영업시간과 식재료비를 먼저 입력해주세요."
+    default_code = "import_not_ready"
+
+
+class AlreadyImportedError(ConflictError):
+    default_detail = "이미 주문·리뷰 데이터를 불러온 테스트입니다."
+    default_code = "already_imported"
 
 
 class ReportAlreadyExistsError(ConflictError):
@@ -77,7 +86,9 @@ def _first_message(detail):
 def custom_exception_handler(exc, context):
     response = exception_handler(exc, context)
     if response is None:
-        return None
+        set_rollback()
+        logger.error("API 요청 처리 실패", exc_info=(type(exc), exc, exc.__traceback__))
+        return error("server_error", "요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.", status=500)
 
     code = getattr(exc, "default_code", "error")
     detail = response.data
