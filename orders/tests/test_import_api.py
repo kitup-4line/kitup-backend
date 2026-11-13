@@ -138,8 +138,10 @@ class OrderImportTests(APITestCase):
                 self.assert_empty()
                 MenuTest.objects.filter(pk=self.test.pk).update(**{field: original})
         for fixed_cost in (None, 0):
-            test = make_test(total_ingredient_cost=1, monthly_fixed_cost=fixed_cost, started_at=self.original_started_at)
+            test = make_test(total_ingredient_cost=1, additional_fixed_cost=fixed_cost, started_at=self.original_started_at)
             self.assertEqual(self.client.post(url("order-import-sample", test.pk)).status_code, 201)
+            test.refresh_from_db()
+            self.assertEqual(test.additional_fixed_cost, fixed_cost)
 
     def test_invalid_server_sample_is_500_without_writes(self):
         original = json.loads(import_service.SAMPLE_PATH.read_text(encoding="utf-8"))
