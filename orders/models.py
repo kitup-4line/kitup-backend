@@ -53,7 +53,8 @@ class Review(TimeStampedModel):
         db_table = "reviews"
         constraints = [
             models.CheckConstraint(
-                condition=Q(content__regex=r"\S"), name="reviews_content_nonblank"
+                # 전각 공백 판정이 DB 로캘에 따라 달라지지 않도록 명시한다.
+                condition=Q(content__regex=r"[^\s\u3000]"), name="reviews_content_nonblank"
             ),
             models.CheckConstraint(
                 condition=Q(sentiment__in=Sentiment.values), name="reviews_sentiment_valid"

@@ -69,11 +69,11 @@ class OrderReviewModelTests(TestCase):
             Review.objects.create(order=self.order, content="두 번째 리뷰")
 
     def test_blank_review_and_invalid_labels_are_rejected_by_database(self):
-        for content in ("", " ", "\t\n", "\u3000"):
+        for content in ("", " ", "\t\n", "\u3000", " \u3000\t\n"):
             with self.subTest(content=repr(content)):
                 with self.assertRaises(IntegrityError), transaction.atomic():
                     Review.objects.create(order=self.order, content=content)
-        review = Review.objects.create(order=self.order, content="맛은 좋지만 양은 적어요")
+        review = Review.objects.create(order=self.order, content="\u3000맛은 좋지만 양은 적어요\u3000")
         Review.objects.filter(pk=review.pk).update(
             sentiment="MIXED", taste_sentiment="POSITIVE", portion_sentiment="NEGATIVE"
         )
