@@ -5,3 +5,5 @@ django-cors-headers==4.9.0
 python-dotenv==1.2.4
 psycopg[binary]==3.3.8
 anthropic==2.6.0
+httpx2==2.16.0
+django-q2==1.11.1

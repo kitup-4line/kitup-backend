@@ -86,7 +86,7 @@ class MenuTestUpdateTests(APITestCase):
             "packaging_cost": 800,
             "business_start_time": "11:00",
             "business_end_time": "20:00:00",
-            "monthly_fixed_cost": 1500000,
+            "additional_fixed_cost": 1500000,
             "started_at": "2026-11-01T00:00:00+09:00",
         })
 
@@ -95,7 +95,7 @@ class MenuTestUpdateTests(APITestCase):
         self.assertEqual(self.test.menu_name, "매콤 소스 덮밥")
         self.assertEqual(self.test.packaging_cost, Decimal("800"))
         self.assertEqual(self.test.business_end_time, time(20))
-        self.assertEqual(self.test.monthly_fixed_cost, 1500000)
+        self.assertEqual(self.test.additional_fixed_cost, 1500000)
         self.assertIsNone(self.test.started_at)
         self.assertEqual(res.json()["data"]["resume_step"], "INGREDIENTS")
 
@@ -116,7 +116,7 @@ class MenuTestUpdateTests(APITestCase):
             {"selling_price": 0},
             {"selling_price": None},
             {"packaging_cost": -1},
-            {"monthly_fixed_cost": -1},
+            {"additional_fixed_cost": -1},
             {"business_start_time": "9시"},
         ):
             with self.subTest(body=body):

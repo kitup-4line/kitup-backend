@@ -192,3 +192,10 @@ refactor/26-analysis       # 기능을 유지하며 코드 정리
 - 제목은 커밋과 같은 형식을 사용합니다.
 - 1 PR은 1목적으로 작성합니다.
 - [PR 템플릿](.github/pull_request_template.md)의 요약, 유형, 작업 내용, 관련 이슈를 직접 작성합니다. `develop`과 `main` 대상 PR 모두 같은 양식을 사용합니다.
+
+
+## 리포트 실행
+
+리포트용 REPORT_REVIEW_*, REPORT_IMPROVEMENT_* 설정은 재료 추정 AI 설정과 별도입니다. 웹 서버와 별도로 `python manage.py qcluster`를 실행합니다. `python manage.py migrate`로 리포트와 작업 큐 테이블을 적용합니다.
+
+`REPORT_AI_TIMEOUT_SECONDS` 기본값은 120초입니다. 두 AI 단계가 워커의 300초 제한을 공유하므로 남은 시간이 부족하면 재시도가 생략될 수 있습니다.

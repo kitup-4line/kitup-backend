@@ -9,7 +9,7 @@ from menu_tests.serializers import OperatingPeriodSerializer
 from .models import Order, Review
 
 
-class _OrderReviewSerializer(serializers.ModelSerializer):
+class OrderReviewSerializer(serializers.ModelSerializer):
     review_id = serializers.IntegerField(source="id", read_only=True)
 
     class Meta:
@@ -20,7 +20,7 @@ class _OrderReviewSerializer(serializers.ModelSerializer):
 
 class OrderListSerializer(serializers.ModelSerializer):
     order_id = serializers.IntegerField(source="id", read_only=True)
-    review = _OrderReviewSerializer(read_only=True, allow_null=True)
+    review = OrderReviewSerializer(read_only=True, allow_null=True)
 
     class Meta:
         model = Order
