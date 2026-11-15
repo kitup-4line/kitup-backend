@@ -5,6 +5,16 @@ name: kitup
 x-app: &app
   image: ghcr.io/kitup-4line/kitup-backend:${IMAGE_TAG:-latest}
   env_file: .env.prod
+  environment:
+    DB_SSLMODE: verify-full
+    PGSSLROOTCERT: /run/certs/rds-ca.pem
+  volumes:
+    - type: bind
+      source: /srv/kitup/rds-ca.pem
+      target: /run/certs/rds-ca.pem
+      read_only: true
+      bind:
+        create_host_path: false
   restart: unless-stopped
   logging:
     driver: json-file
