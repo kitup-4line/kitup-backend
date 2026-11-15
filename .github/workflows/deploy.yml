@@ -1,0 +1,112 @@
+# main 병합 → 테스트 → 이미지 빌드(GHCR, 커밋 SHA 태그) → EC2 배포 → 응답 확인 (실패 시 직전 버전 복구)
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:   # Actions 탭에서 수동 재배포
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/kitup-4line/kitup-backend
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18.6-bookworm
+        env:
+          POSTGRES_DB: kitup_test
+          POSTGRES_USER: kitup
+          POSTGRES_PASSWORD: kitup
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U kitup"
+          --health-interval 5s --health-timeout 3s --health-retries 12
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.local
+      DB_NAME: kitup_test
+      DB_USER: kitup
+      DB_PASSWORD: kitup
+      DB_HOST: 127.0.0.1
+      DB_PORT: "5432"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: python manage.py makemigrations --check --dry-run
+      - run: python manage.py test
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      TARGET: ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}
+      DEPLOY_DIR: ${{ vars.DEPLOY_DIR || '/home/ubuntu/kitup' }}
+      HEALTHCHECK_URL: ${{ vars.HEALTHCHECK_URL || 'https://api.minhodev.shop/api/tests/defaults/' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: SSH 설정
+        env:
+          SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
+          printf 'Host *\n  IdentityFile ~/.ssh/deploy_key\n  IdentitiesOnly yes\n' > ~/.ssh/config
+
+      - name: 배포 파일 복사
+        run: scp compose.prod.yaml scripts/deploy.sh "$TARGET:$DEPLOY_DIR/"
+
+      - name: 배포
+        id: deploy
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # 이 작업 동안만 유효한 토큰으로 GHCR 로그인 → 배포 → 로그아웃 (EC2에 토큰을 남기지 않음)
+        run: |
+          printf '%s' "$GHCR_TOKEN" | ssh "$TARGET" "
+            docker login ghcr.io -u '${{ github.actor }}' --password-stdin > /dev/null &&
+            bash '$DEPLOY_DIR/deploy.sh' '${{ github.sha }}'; status=\$?;
+            docker logout ghcr.io > /dev/null; exit \$status"
+
+      - name: 응답 확인
+        run: curl -fsS --retry 10 --retry-delay 6 --retry-all-errors -o /dev/null "$HEALTHCHECK_URL"
+
+      - name: 실패 시 직전 버전으로 복구
+        if: failure() && steps.deploy.outcome == 'success'
+        run: ssh "$TARGET" "bash '$DEPLOY_DIR/deploy.sh' rollback"
