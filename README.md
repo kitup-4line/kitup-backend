@@ -199,3 +199,44 @@ refactor/26-analysis       # 기능을 유지하며 코드 정리
 리포트용 REPORT_REVIEW_*, REPORT_IMPROVEMENT_* 설정은 재료 추정 AI 설정과 별도입니다. 웹 서버와 별도로 `python manage.py qcluster`를 실행합니다. `python manage.py migrate`로 리포트와 작업 큐 테이블을 적용합니다.
 
 `REPORT_AI_TIMEOUT_SECONDS` 기본값은 120초입니다. 두 AI 단계가 워커의 300초 제한을 공유하므로 남은 시간이 부족하면 재시도가 생략될 수 있습니다.
+
+## 배포
+
+`main`에 병합되면 GitHub Actions([deploy.yml](.github/workflows/deploy.yml))가 자동으로 배포합니다.
+
+```text
+테스트 → Docker 이미지 빌드 (ghcr.io/kitup-4line/kitup-backend:{커밋 SHA})
+→ EC2에 compose.prod.yaml, deploy.sh 복사 → migrate → web·worker 재시작
+→ 응답 확인 (실패하면 직전 버전으로 자동 복구)
+```
+
+- 서버 구성: EC2 + Nginx(HTTPS) + Docker Compose + RDS PostgreSQL
+- 컨테이너: `web`(gunicorn, `127.0.0.1:8000`), `worker`(`qcluster`, 리포트 AI 처리)
+- 수동 재배포: Actions 탭 → Deploy → Run workflow
+
+### GitHub 설정
+
+| 종류 | 이름 | 값 |
+| --- | --- | --- |
+| Secret | `EC2_HOST` | EC2 주소 |
+| Secret | `EC2_USER` | EC2 접속 사용자 |
+| Secret | `EC2_SSH_KEY` | 배포용 SSH 개인키 |
+| Variable (선택) | `DEPLOY_DIR` | 배포 폴더, 기본 `/home/ubuntu/kitup` |
+| Variable (선택) | `HEALTHCHECK_URL` | 응답 확인 주소, 기본 `https://api.minhodev.shop/api/tests/defaults/` |
+
+### EC2 배포 폴더
+
+```text
+{DEPLOY_DIR}/
+├── .env.prod            # 직접 작성 (.env.prod.example 참고, 레포에 올리지 않음)
+├── compose.prod.yaml    # 배포 때마다 자동 복사
+├── deploy.sh            # 배포 때마다 자동 복사
+└── .image_tag           # 현재 배포된 커밋 SHA
+```
+
+```bash
+cd {DEPLOY_DIR}
+IMAGE_TAG=$(cat .image_tag) docker compose -f compose.prod.yaml logs -f web   # 로그
+IMAGE_TAG=$(cat .image_tag) docker compose -f compose.prod.yaml ps            # 상태
+bash deploy.sh rollback                                                       # 직전 버전으로 복구
+```
