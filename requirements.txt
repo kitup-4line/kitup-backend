@@ -1,5 +1,11 @@
-Django>=5.0,<5.2
-djangorestframework>=3.15
-drf-spectacular>=0.27
-django-cors-headers>=4.3
-python-dotenv>=1.0
+Django==5.2.19
+djangorestframework==3.18.3
+drf-spectacular==0.30.0
+django-cors-headers==4.9.0
+python-dotenv==1.2.4
+psycopg[binary]==3.3.8
+anthropic==2.6.0
+httpx2==2.16.0
+django-q2==1.11.1
+gunicorn==27.0.1
+whitenoise==6.12.0

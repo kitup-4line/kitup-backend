@@ -1,15 +1,50 @@
 # kitup-backend
 멋쟁이사자처럼 4호선톤 kitup 백엔드 레포지토리입니다.
 
+## 처음 설정
+
+`.python-version`에 적힌 버전의 [Python](https://www.python.org/downloads/)과 Docker Desktop을 먼저 설치합니다.
+
+DB 설정은 `.env.example`의 개발용 기본값을 그대로 사용합니다.
+
+```powershell
+python --version
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1     # macOS/Linux: source .venv/bin/activate
+pip install -r requirements.txt
+Copy-Item .env.example .env       # macOS/Linux: cp .env.example .env (기존 .env가 있으면 생략)
+```
+
 ## 실행
 
-```bash
-python -m venv .venv
-source .venv/Scripts/activate   # mac: source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
+Docker Desktop을 켠 뒤 실행합니다.
+
+```powershell
+.\.venv\Scripts\Activate.ps1     # macOS/Linux: source .venv/bin/activate
+docker compose -f compose.dev.yaml up -d --wait db
 python manage.py migrate
 python manage.py runserver
+```
+
+## 개발 DB
+
+PostgreSQL 18.6은 `compose.dev.yaml`로, Django는 PC의 가상환경에서 실행합니다.
+
+- 접속 설정: `.env`
+- 종료: `docker compose -f compose.dev.yaml stop db`
+- DB를 종료해도 데이터는 유지됩니다.
+- `docker compose -f compose.dev.yaml down -v`는 데이터를 삭제합니다.
+
+## 샘플 데이터
+
+[sample_package.json](orders/fixtures/sample_package.json)은 **후라이드 반 / 양념 반** 메뉴의 실제 리뷰 48개와 가상 주문 60개로 구성한 시연용 데이터입니다.
+
+출처: Hyunggu Jung, Hyunmin Lee, SeungYoung Oh, JinHyun Han, [Mendeley 요기요 리뷰 v2](https://data.mendeley.com/datasets/rnyrpzyw3h/2), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+
+재생성: 위 Mendeley v2에서 `Korean Reviews.csv` 다운로드 → `downloads/`에 저장 → 프로젝트 루트에서 실행 (`--check`: 검증만).
+
+```powershell
+python scripts/build_sample_package.py --source "downloads/Korean Reviews.csv"
 ```
 
 ## 구조
@@ -23,7 +58,7 @@ kitup-backend/
 ├── config/
 │   ├── settings/
 │   │   ├── base.py                 # 공통 설정
-│   │   ├── local.py                # 로컬 (sqlite)
+│   │   ├── local.py                # 개발 (PostgreSQL)
 │   │   └── prod.py                 # 배포 (postgres)
 │   ├── urls.py                     # 루트 URL
 │   ├── asgi.py
@@ -90,4 +125,118 @@ kitup-backend/
 /api/tests/{test_id}/orders/         → orders.urls
 /api/tests/{test_id}/dashboard/      → dashboard.urls
 /api/tests/{test_id}/report/         → reports.urls
+```
+
+## 협업 규칙
+
+### 브랜치 전략
+
+```text
+main                       # 배포 브랜치
+develop                    # 통합 브랜치
+{type}/{이슈번호}-{내용}     # 작업 브랜치
+```
+
+GitHub 기본 브랜치는 `develop`입니다. 작업 브랜치는 실제 이슈 번호를 사용합니다.
+
+```text
+feat/12-analysis           # 기능 추가
+fix/18-analysis-owner      # 오류 수정
+hotfix/23-login            # 운영 긴급 수정
+docs/24-readme             # 문서 수정
+settings/25-ci             # 설정·의존성·CI/CD 변경
+refactor/26-analysis       # 기능을 유지하며 코드 정리
+```
+
+- 개발: 이슈 생성 → `develop`에서 작업 브랜치 생성 → 작업 → `develop` 대상 PR → 팀원 1명 승인 → Squash merge
+- 배포: `develop` → `main` PR → 작성자가 Merge commit으로 병합
+- 긴급 수정: `main`에서 `hotfix` 브랜치 생성 → PR → 팀원 1명 승인 → `main` 병합 → 변경 내용을 `develop`에도 반영
+- 병합된 작업 브랜치는 자동 삭제합니다. 저장소의 `Automatically delete head branches`를 활성화하고, `main`과 `develop`에는 삭제 제한을 설정합니다.
+
+### 커밋 컨벤션
+
+```text
+<이모지> <Type>: <변경 대상 및 변경 내용>
+
+✨ Feat: 분석 요청 저장 기능 추가
+🐛 Fix: 분석 실패 시 중복 호출 방지
+♻️ Refactor: 분석 결과 변환 코드 분리
+🔧 Settings: AI 응답 대기 시간 설정
+📝 Docs: 로컬 실행 방법 추가
+✅ Test: 타인 분석 조회 차단 검증
+👷 CI: PR 테스트 자동 실행 추가
+🚀 Deploy: 배포 후 상태 확인 추가
+⏪ Revert: 분석 결과 캐시 적용 취소
+```
+
+| 이모지 | 타입 | 설명 |
+| --- | --- | --- |
+| ✨ | Feat | 새 기능 추가 |
+| 🐛 | Fix | 버그 수정 |
+| ♻️ | Refactor | 기능을 바꾸지 않고 코드 정리 |
+| 🔧 | Settings | 일반 설정, 의존성 변경 |
+| 📝 | Docs | 문서, 주석, AI 지침 변경 |
+| ✅ | Test | 테스트 추가 및 수정 |
+| 👷 | CI | PR 검사 및 빌드 자동화 변경 |
+| 🚀 | Deploy | 배포, 상태 확인, 복귀 절차 변경 |
+| ⏪ | Revert | 변경 되돌리기 |
+| 🔖 | Release | 버전 기록 변경 |
+| ⚡ | Perf | 성능 개선, 측정 근거와 수치 기재 |
+
+- 1커밋에는 같은 목적의 코드와 관련 테스트를 묶습니다.
+- GitHub 자동 생성 커밋은 형식 예외입니다.
+- 배포 이미지 태그에는 `main`의 커밋 SHA를 사용합니다.
+
+### PR 규칙
+
+- 제목은 커밋과 같은 형식을 사용합니다.
+- 1 PR은 1목적으로 작성합니다.
+- [PR 템플릿](.github/pull_request_template.md)의 요약, 유형, 작업 내용, 관련 이슈를 직접 작성합니다. `develop`과 `main` 대상 PR 모두 같은 양식을 사용합니다.
+
+
+## 리포트 실행
+
+리포트용 REPORT_REVIEW_*, REPORT_IMPROVEMENT_* 설정은 재료 추정 AI 설정과 별도입니다. 웹 서버와 별도로 `python manage.py qcluster`를 실행합니다. `python manage.py migrate`로 리포트와 작업 큐 테이블을 적용합니다.
+
+`REPORT_AI_TIMEOUT_SECONDS` 기본값은 120초입니다. 두 AI 단계가 워커의 300초 제한을 공유하므로 남은 시간이 부족하면 재시도가 생략될 수 있습니다.
+
+## 배포
+
+`main`에 병합되면 GitHub Actions([deploy.yml](.github/workflows/deploy.yml))가 자동으로 배포합니다.
+
+```text
+테스트 → Docker 이미지 빌드 (ghcr.io/kitup-4line/kitup-backend:{커밋 SHA})
+→ EC2에 compose.prod.yaml, deploy.sh 복사 → migrate → web·worker 재시작
+→ 응답 확인 (실패하면 직전 버전으로 자동 복구)
+```
+
+- 서버 구성: EC2 + Nginx(HTTPS) + Docker Compose + RDS PostgreSQL
+- 컨테이너: `web`(gunicorn, `127.0.0.1:8000`), `worker`(`qcluster`, 리포트 AI 처리)
+- 수동 재배포: Actions 탭 → Deploy → Run workflow
+
+### GitHub 설정
+
+| 종류 | 이름 | 값 |
+| --- | --- | --- |
+| Secret | `EC2_HOST` | EC2 주소 |
+| Secret | `EC2_USER` | EC2 접속 사용자 |
+| Secret | `EC2_SSH_KEY` | 배포용 SSH 개인키 |
+| Variable (선택) | `DEPLOY_DIR` | 배포 폴더, 기본 `/home/ubuntu/kitup` |
+| Variable (선택) | `HEALTHCHECK_URL` | 응답 확인 주소, 기본 `https://api.minhodev.shop/api/tests/defaults/` |
+
+### EC2 배포 폴더
+
+```text
+{DEPLOY_DIR}/
+├── .env.prod            # 직접 작성 (.env.prod.example 참고, 레포에 올리지 않음)
+├── compose.prod.yaml    # 배포 때마다 자동 복사
+├── deploy.sh            # 배포 때마다 자동 복사
+└── .image_tag           # 현재 배포된 커밋 SHA
+```
+
+```bash
+cd {DEPLOY_DIR}
+IMAGE_TAG=$(cat .image_tag) docker compose -f compose.prod.yaml logs -f web   # 로그
+IMAGE_TAG=$(cat .image_tag) docker compose -f compose.prod.yaml ps            # 상태
+bash deploy.sh rollback                                                       # 직전 버전으로 복구
 ```
