@@ -3,11 +3,15 @@
 from collections.abc import Mapping
 from typing import Protocol, TypedDict
 
+from django.conf import settings
+
 from rest_framework.renderers import JSONRenderer
 
 from ai.prompts import recommendation, review_analysis
+from core.exceptions import AIServiceError
 
 from . import ai_client
+from .review_response import ReviewResponseError, decode_compact_response
 
 
 class ReviewAnalysisResult(TypedDict):
@@ -38,9 +42,18 @@ class ImprovementGenerator(Protocol):
 class APIReviewAnalyzer:
     def analyze(self, reviews: list[dict]) -> dict[str, object]:
         user = JSONRenderer().render(reviews).decode()
-        return ai_client.request_json(
-            "REVIEW", review_analysis.SYSTEM_PROMPT, user, max_tokens=12288,
+        compact = (
+            settings.REPORT_REVIEW_PROVIDER.strip().lower() == "anthropic"
+            and settings.REPORT_REVIEW_MODEL.strip() == "claude-sonnet-5-5"
         )
+        prompt = review_analysis.COMPACT_SYSTEM_PROMPT if compact else review_analysis.SYSTEM_PROMPT
+        payload = ai_client.request_json("REVIEW", prompt, user, max_tokens=12288)
+        if not compact:
+            return payload
+        try:
+            return decode_compact_response(payload)
+        except ReviewResponseError:
+            raise AIServiceError("리뷰 분석 응답 형식이 올바르지 않습니다.") from None
 
 
 class APIImprovementGenerator:

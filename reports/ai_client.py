@@ -184,6 +184,8 @@ def request_json(stage: str, system: str, user: str, *, max_tokens: int) -> dict
     if provider not in ("anthropic", "openai", "gemini") or not model or not api_key or timeout <= 0:
         raise AIServiceError("리포트 AI 제공자·모델·API 키·시간 제한을 확인해주세요.")
     url, headers, body = _request(provider, model, api_key, system, user, max_tokens)
+    if stage == "REVIEW" and provider == "anthropic" and model == "claude-sonnet-5-5":
+        body["output_config"] = {"effort": "medium"}
     context = report_task_context.get()
     deadline = context["deadline"] if context else time.monotonic() + settings.Q_CLUSTER["timeout"]
     # 호출 시작 여부를 판단할 때 timeout에 저장 여유 5초를 더한다. 저장 완료를 보장하지는 않는다.
